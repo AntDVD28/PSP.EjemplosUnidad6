@@ -1,0 +1,99 @@
+Cuando dos socket SSL, uno cliente y otro servidor, intentan establecer conexión tienen que
+"presentarse" el uno al otro y comprobar que el otro es de confianza. Si todo va bien y uno confia
+en el otro, la conexión se establece, en caso contrario no se establece. Para establecer esa
+confianza se debe crear un certificado para cada socket, uno para el cliente y otro para el
+servidor. Se puede usar para ello la herramienta keytool.
+
+Para crear el certificado del servidor usamos las siguientes opciones en keytool:
+
+ -genkey: indicamos a keytool que genere un certificado.
+ -keyalg RSA: el certificado será encriptado con el algorítmo RSA.
+ -alias servidor: nombre con el que podremos identificar este certificado dentro del almacén.
+ -keystore AlmacenSrv es el fichero que hará de almacén de cetiificados. Si no existe
+  se crea, si ya existe se añade el certificado con el alias que se haya indicado.
+ -storepass 1234567, es la contraseña para acceder al almacén.
+
+
+keytool -genkey -alias servidor -keyalg RSA -keystore AlmacenSrv -storepass 1234567
+
+A continuacion nos hace una serie de preguntas sobre los datos de la persona y organizacion que generan el certificado.
+y nos pide tambien la contraseña que queremos establecer para el certificado (o la misma del almacen)
+Los rellenamos.
+Nombre, organizacion, pais, provincia, etc
+
+
+Con esto se ha creado el fichero AlmaceSrv en la carpeta en la que hemos ejecutado el
+comando y dentro está el certificado de servidor. A continuación tenemos que sacar el certificado
+a un fichero para que el cliente tenga el mismo certificado en su almacen de certificados de
+confianza; usamos de nuevo el comando keytool con las siguientes opciones:
+
+ -exportcert: para expo1iar el certificado.
+ -keystore Almace11Srv: se indica el almacén donde está el certificado a exportar.
+ -alias servidor: identificador del certificado dentro del almacén.
+ -file CertificadoServ.cer: nombre del fichero donde se guardará el ce1iificado que vamos a extraer.
+ -storepass 1234567: es la contraseña para acceder al almacén.
+
+keytool -exportcert -alias servidor -keystore AlmacenSrv -storepass 1234567 -file CertificadoServ.cer
+
+Certificado almacenado en el archivo CertificadoServ.cer
+
+A continuación en el cliente hay que generar el almacén de confianza que debe contener el
+mismo certificado que el servidor. Usamos el comando keytool con las siguientes opciones:
+
+ -importcert: para introducir un certificado en el almacén.
+ -alias servidor: identificador que queremos dar al certificado del servidor dentro del almacén del cliente.
+ -file CertificadoServ.cer: certificado a introducir en el almacén.
+ -keystore CliCertConfianza: almacén de certificados de confianza del cliente, se creará si no existe.
+ -storepass 890123: es la contraseña para acceder al almacén.
+
+keytool -importcert -trustcacerts -alias servidor -file CertificadoServ.cer -keystore CliCertConfianza -storepass 333444
+
+A continuacion se nos muestra los datos del certificado y nos pregunta que si confiamos en él.
+Propietario, pais, ciudad, etc
+....
+¿Confiar en este certificado? [no]: si
+Se ha agregado el certificado al almacén de claves
+
+En este momento tenemos el almacén de certificados de confianza del cliente en el fichero
+CliCertConfianza con el certificado de confianza del servidor. Debemos repetir el proceso para
+crear el almacén de certificados de confianza para el servidor, introduciendo en él el certificado
+del cliente.
+
+En el cliente ejecuto las siguientes órdenes para generar un certificado en un almacén distinto
+al almacén donde tenemos los certificados de confianza y exportalo a un fichero:
+
+keytool -genkey -alias cliente -keyalg RSA -keystore AlmacenCli -storepass clavecli
+
+keytool -exportcert -alias cliente -keystore AlmacenCli -storepass clavecli -file CertificadoCli.cer
+
+En el servidor importamos el certificado del cliente en el almacén de certificados de confianza
+del servidor, distinto al almacén de claves:
+
+keytool -importcert -trustcacerts -alias cercliente -file CertificadoCli.cer -keystore SrvCertConfianza -storepass cercli
+
+Para ejecutar el programa servidor es necesario indicar el certificado que se utilizará. Se
+escribe la siguiente orden desde la línea de comandos, se asume que el fichero de almacén de
+claves se sitúa en el directorio donde se ejecuta el servidor, si se localiza en otro directorio habría
+que indicarlo (por ejemplo c:\certificados\SSL\AlmacenSrv):
+
+java -Djavax.net.ssl.keyStore=AlmacenSrv -Djavax.net.ssl.keyStorePassword=l234567 ServidorSSL
+
+Para ejecutar el programa cliente escribimos lo siguiente:
+
+java -Djavax.net.ssl.trustStore=CliCertConfianza -Djavax.net.ssl.trustStorePassword=333444 ClienteSSL
+
+Esto es para establecer los certificados desde la linea de comandos, pero también los podriamos haber
+establecido desde dentro del propio programa:
+
+En el programa servidor incluimos las siguientes líneas después de definir la variable puerto:
+
+System.setProperty("javax.net.ssl.keyStore", "AlmacenSrv");
+System.setProperty("javax.net.ssl.keyStorePassword", "1234567");
+
+Si el almacén se encuentra en una carpeta distinta hemos de indicarlo, ejemplo:
+System.setProperty("javax.net.ssl.keyStore","c:\certificados\SSL\AlmacenSrv");
+
+Y en el programa cliente:
+System.setProperty("javax.net.ssl.trustStore","CliCertConfianza");
+System.setProperty("javax.net.ssl.trustStorePassword", "333444");
+
